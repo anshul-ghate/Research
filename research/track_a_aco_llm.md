@@ -1,10 +1,21 @@
 # Track A — Direct ACO-for-LLM Multi-Agent Prior Art
 
-**Status:** IN PROGRESS
+**Status:** COMPLETE
 **SubAgent:** A
 **Last updated:** 2026-04-21
 **Tool-call budget:** 25–30
-**Tool-call count:** 4 (1 Write + 3 parallel WebSearch)
+**Tool-call count:** ~14 (1 Write + 3 WebSearch broad + 1 WebFetch fail + 1 Edit-interim + 1 WebFetch AMRO-S + 1 Edit + 1 WebFetch GPTSwarm + 1 Edit + 1 WebSearch Adornetto + 1 Edit + 1 WebSearch MasRouter + 1 Edit + 1 WebSearch AgentRouter + 1 Edit + 1 WebFetch ACO-ToT + 1 Edit + 1 WebSearch GitHub + 1 Edit + 1 WebSearch stigmergic-RL + 4 final Edits) — within budget.
+
+## BLOCKING_CANDIDATE
+
+**AMRO-S (arXiv 2603.12933, IEEE Trans AI, 13 Mar 2026)** — "Efficient and Interpretable Multi-Agent LLM Routing via Ant Colony Optimization" (Wang et al.). This paper implements:
+- Task-specific **pheromone** specialists τᵗ.
+- Canonical ACO proportional rule pᵢⱼ(q)=[τ]^α·[η]^β/Σ(...).
+- Standard **evaporation** (1−ρ)·τᵢⱼᵗ.
+- **DAG decomposition** (layered directed graph across N stages).
+- **Stigmergic RL** via quality-gated asynchronous pheromone updates.
+- Adaptive online evolution of routing preferences.
+All for **multi-agent LLM routing.** This directly contradicts Pheromone's C-01 "first formal adaptation for LLM agents" phrasing and is STRONG-severity on C-02 and C-04. Pheromone MUST cite AMRO-S and narrow its "first"/"novel" claims.
 
 ---
 
@@ -199,31 +210,194 @@ No evidence of shipped SaaS products or VC-backed frameworks named "Pheromone" o
 
 | Title | Authors | Venue | Date | URL | Mechanism summary | Claims overlapped | Severity | What Pheromone does that this doesn't | Citation needed |
 |-------|---------|-------|------|-----|-------------------|-------------------|----------|--------------------------------------|-----------------|
+| AMRO-S: Efficient and Interpretable Multi-Agent LLM Routing via ACO | Wang, Zhang, Zhang, Li, Sun, Bae, Wang, Xie, Zou, Yang, Shen | IEEE Trans AI | 13 Mar 2026 | [arXiv 2603.12933](https://arxiv.org/abs/2603.12933) | Task-specific pheromone specialists + canonical ACO proportional rule + evaporation + DAG routing | C-01 (partial), C-02, C-04, C-05 | STRONG | MAX-MIN bounds; decentralized (AMRO-S is centralized); shared file workspace + ADRs; review cycles; adaptive colony composition rather than routing | **YES — must cite as closest prior work** |
+| ACO-ToT: Pheromone-based Learning of Optimal Reasoning Paths | Chari, Tiwari, Lian, Reddy, Zhou | arXiv cs.CL | 31 Jan 2025 | [arXiv 2501.19278](https://arxiv.org/abs/2501.19278) | LLM "ants" traverse centralized Tree of Thought, deposit pheromones proportional to reasoning quality | C-02 (reasoning paths, not agent orchestration) | STRONG (on ACO-for-LLM framing), WEAK (on orchestration) | Pheromone is multi-agent orchestration; ACO-ToT is single-agent reasoning | **YES** |
+| GPTSwarm: Language Agents as Optimizable Graphs | Zhuge, Wang, Kirsch, Faccio, Khizbullin, Schmidhuber | ICML 2024 | 26 Feb 2024 | [arXiv 2402.16823](https://arxiv.org/abs/2402.16823) | LLM agents as computational graphs with learned optimizer over edges | C-05 (weakly) | WEAK (NAME-ONLY on "swarm") | Stigmergy, pheromones, ACO, MAX-MIN, shared workspace, review cycles | YES (framing/contrast) |
+| MasRouter: Learning to Route LLMs for Multi-Agent Systems | Yue, Zhang, Liu, Wan, Wang, Cheng, Qi | ACL 2025 | arXiv Feb 2025 | [arXiv 2502.11133](https://arxiv.org/abs/2502.11133) | Cascaded controller network routes LLMs + roles | C-01 (central-router framing), C-05 | PARTIAL | ACO / pheromones / stigmergic RL; decentralization | **YES (baseline)** |
+| AgentRouter: KG-Guided LLM Router | Zhang et al. | arXiv | Oct 2025 | [arXiv 2510.05445](https://arxiv.org/abs/2510.05445) | Heterogeneous GNN (RouterGNN) trained on empirical agent performance, KG-based | C-01, C-05 | PARTIAL | ACO / stigmergic mechanism | **YES (baseline)** |
+| LLM-Powered Swarms: A New Frontier or a Conceptual Stretch? | — | arXiv | 17 Jun 2025 | [arXiv 2506.14496](https://arxiv.org/abs/2506.14496) | Empirical eval of LLM swarms vs classical ACO on latency/resource/accuracy | none mechanistically | WEAK (survey/critique) | Proposes no mechanism | Likely (lit review) |
+| Multi-Agent Systems Powered by LLMs: Applications in Swarm Intelligence | — | Frontiers in AI 2025 | 2025 | [arXiv 2503.03800](https://arxiv.org/abs/2503.03800) | Replaces ABM agent code with LLM prompts in ant foraging / flocking | C-01 loosely | WEAK (sim toolkit, not orchestration) | Stigmergic orchestration infrastructure | Maybe |
+| PooL: Pheromone-inspired Communication for Large-Scale MARL | — | arXiv 2202.09722 | Feb 2022 | [arXiv](https://arxiv.org/abs/2202.09722) | Pheromone-inspired MARL (pre-LLM) | foundational | OUT-OF-SCOPE / foundational | LLM integration | Optional (lineage) |
+| Stigmergic Independent Reinforcement Learning for Multi-Agent Collaboration | — | arXiv 1911.12504 | 2019 | [arXiv](https://arxiv.org/abs/1911.12504) | Stigmergy as indirect-communication bridge in MARL (pre-LLM) | foundational to C-04 | OUT-OF-SCOPE / foundational for C-04 naming | LLM integration; stigmergic RL **for LLMs specifically** | **YES — cite if C-04 claims "novel"** |
+| Scalable Decentralized MARL Inspired by Stigmergy and Ant Colonies | — | arXiv 2105.03546 | 2021 | [ADS](https://ui.adsabs.harvard.edu/abs/2021arXiv210503546A/abstract) | Decentralized MARL + ACO-inspired path planning (pre-LLM) | foundational to C-01 (decentralized stigmergy) | OUT-OF-SCOPE / foundational | LLM integration | Optional |
+| Adornetto et al. — Generative agents in ABM (overview) | C. Adornetto et al. | IEEE Trans AI 2025 | 2025 | [UNVERIFIED] | Survey/overview of generative agents in ABM | none direct | WEAK (survey) | — | Maybe; flag unverified |
+| RCR-Router: Role-Aware Context Routing | — | arXiv 2508.04903 | Aug 2025 | [arXiv](https://arxiv.org/abs/2508.04903) | Learned role-aware context router | C-05 | PARTIAL | ACO mechanism; stigmergy | Likely (baseline) |
+| Router-R1: LLM Multi-Round Routing via RL | — | arXiv 2506.09033 | Jun 2025 | [arXiv](https://arxiv.org/abs/2506.09033) | RL-trained multi-round router | C-05 | PARTIAL | ACO; stigmergy | Likely (baseline) |
+| Orchestrating Intelligence: Confidence-Aware Routing | — | arXiv 2601.04861 | 2026 | [arXiv](https://arxiv.org/abs/2601.04861) | Confidence-aware multi-scale routing | C-05 | PARTIAL | ACO; stigmergy | Optional |
+| Ants GPT (NetLogo #7548) | Jimenez Romero | Modeling Commons | — | [URL](https://www.modelingcommons.org/browse/one_model/7548) | Toy LLM + rule-based ants in NetLogo | — | NAME-ONLY | — | No |
+| "Why Multi-Agent Systems Don't Need Managers" | Rodriguez | blog | — | [URL](https://www.rodriguez.today/articles/emergent-coordination-without-managers) | Pop-sci advocacy for decentralized multi-agent | C-01 framing | NAME-ONLY | — | No |
 
 ## 6. Severity analysis per claim
 
-### 6.1 C-01 (no central orchestrator — first formal adaptation for LLM)
-[pending]
+### 6.1 C-01 (no central orchestrator — "first formal adaptation for LLM")
+
+**Verdict: CLAIM IS NOT DEFENSIBLE AS STATED.** The phrase "first formal adaptation for LLM agents" cannot survive literature. There are at least three peer-reviewed or ACL-venue LLM multi-agent coordination papers that pre-date or coincide with Pheromone:
+- MasRouter (ACL 2025) — coordination across multiple LLM agents.
+- GPTSwarm (ICML 2024) — multi-LLM-agent graph orchestration.
+- AMRO-S (IEEE Trans AI, arXiv 2603.12933) — **ACO-based** multi-agent LLM routing.
+
+However, **a nuanced form may still be defensible**: "first fully decentralized, stigmergy-only coordination for LLM agents (no central router, no learned controller, no graph optimizer)." All three competitors above retain a central decision point (controller, graph optimizer, or fusion gate). Pheromone should reframe C-01 to this narrower claim.
+
+**Severity: STRONG** (as written — the "first" claim is destroyed by AMRO-S alone).
+**Severity if narrowed:** WEAK.
 
 ### 6.2 C-02 (ACO with MAX-MIN)
-[pending]
 
-### 6.3 C-04 (Stigmergic RL — novel)
-[pending]
+**Competitors:** AMRO-S uses canonical ACO proportional rule + evaporation. ACO-ToT uses pheromone deposition. Neither explicitly uses **MAX-MIN** bounds (per Stützle & Hoos). This is a genuine differentiation vector.
+
+- AMRO-S: vanilla ACO (no MAX-MIN mentioned).
+- ACO-ToT: does not mention MAX-MIN.
+- Dorigo/Stützle: foundational (cite explicitly as such).
+
+**Severity: STRONG for ACO-for-LLM in general (AMRO-S), PARTIAL specifically for MAX-MIN variant (may be genuinely novel in the LLM agent setting).** Pheromone should pivot C-02's novelty claim away from "ACO-for-LLM" (taken) toward "MAX-MIN ACO for LLM orchestration" (potentially novel).
+
+### 6.3 C-04 (Stigmergic RL — "novel, no prior publication")
+
+**Verdict: NAME IS NOT NOVEL.** Stigmergic RL as a concept is at least 20 years old in MARL:
+- Ricci et al. "Stigmergy in multiagent RL" (IEEE 2005, also Inria HAL).
+- "Stigmergic Independent RL for Multi-Agent Collaboration" (arXiv 1911.12504, 2019).
+- "Scalable Decentralized MARL Inspired by Stigmergy and Ant Colonies" (arXiv 2105.03546, 2021).
+
+Additionally, AMRO-S has "quality-gated asynchronous updates reinforc[ing] paths via pheromone signals" — which IS a form of stigmergic RL, even if not labeled as such.
+
+**However,** no prior work applies stigmergic RL **to LLM-agent meta-learning specifically** based on this search. So a narrowed claim — "first application of stigmergic RL to LLM agent meta-learning" — may survive, if Pheromone means something stricter than "pheromone-based quality feedback" (which AMRO-S already does).
+
+**Severity: STRONG as written ("novel"), PARTIAL if narrowed to "first for LLM-agent meta-learning."** Must cite Ricci 2005, Xu et al. 2019, and AMRO-S 2026.
 
 ### 6.4 C-05 (adaptive colony composition — novel)
-[pending]
 
-### 6.5 C-10 (shared workspace + leasing + ADRs)
-[pending]
+**Competitors in adjacent space:**
+- MasRouter: cascaded controller determines collaboration mode + role allocation + LLM routing (effectively adaptive team composition).
+- AgentRouter: GNN predicts task-dependent distribution over agents (adaptive team composition).
+- GPTSwarm: automatic graph optimizer edits agent graph (adaptive team composition).
+- AMRO-S: "online evolution adjusts preferences" — adaptive routing weights but not agent team composition.
 
-### 6.6 C-11 (review cycles built-in)
-[pending]
+**Verdict:** Adaptive team composition in multi-agent LLM systems is crowded. What can remain novel is **stigmergic (pheromone-mediated) colony composition** specifically — i.e., agents join/leave via local pheromone signals rather than a learned controller. That specific mechanism is NOT covered by any of the above. Pheromone should frame C-05 as "stigmergic (decentralized, pheromone-mediated) colony composition" rather than generic "adaptive team composition."
+
+**Severity: PARTIAL as written, WEAK if narrowed to stigmergic-specific.**
+
+### 6.5 C-10 (shared workspace + file leasing + ADRs + convention enforcement)
+
+**No direct ACO-for-LLM competitor implements this.** AMRO-S has a "query-conditioned fusion" of pheromone signals (not a file workspace). ACO-ToT has a centralized tree of thought (not a file workspace).
+
+Outside ACO, mainstream frameworks (AutoGen, CrewAI, SWE-agent, Devin) DO implement shared workspaces with various leasing/locking semantics. These are in SubAgent C's track, not here, but C-10 is almost certainly NOT novel on the non-ACO side. From the ACO-for-LLM angle specifically, C-10 appears not to collide.
+
+**Severity (within Track A): WEAK/none.** Cross-track concern: C likely finds overlap.
+
+### 6.6 C-11 (code review cycles built-in)
+
+**No ACO-for-LLM competitor implements code→test→review→fix cycles.** AMRO-S, ACO-ToT, MasRouter, AgentRouter, GPTSwarm — none are code-agent systems. From the ACO-for-LLM angle, C-11 does not collide.
+
+**Severity (within Track A): none.** Cross-track concern: SWE-agent, AutoGen, Devin, OpenDevin, and especially CrewAI/LangGraph-based coder frameworks will have this — SubAgent C's territory.
 
 ## 7. Proposed BibTeX citations for arXiv Related Work
 
-[pending]
+```bibtex
+@article{wang2026amros,
+  title   = {Efficient and Interpretable Multi-Agent LLM Routing via Ant Colony Optimization},
+  author  = {Wang, Xudong and Zhang, Chaoning and Zhang, Jiaquan and Li, Chenghao and Sun, Qigan and Bae, Sung-Ho and Wang, Peng and Xie, Ning and Zou, Jie and Yang, Yang and Shen, Hengtao},
+  journal = {IEEE Transactions on Artificial Intelligence},
+  year    = {2026},
+  note    = {arXiv:2603.12933}
+}
+
+@article{chari2025acotot,
+  title   = {Pheromone-based Learning of Optimal Reasoning Paths},
+  author  = {Chari, Anirudh and Tiwari, Aditya and Lian, Richard and Reddy, Suraj and Zhou, Brian},
+  journal = {arXiv preprint arXiv:2501.19278},
+  year    = {2025}
+}
+
+@inproceedings{zhuge2024gptswarm,
+  title     = {Language Agents as Optimizable Graphs},
+  author    = {Zhuge, Mingchen and Wang, Wenyi and Kirsch, Louis and Faccio, Francesco and Khizbullin, Dmitrii and Schmidhuber, Jürgen},
+  booktitle = {Proceedings of the 41st International Conference on Machine Learning (ICML)},
+  year      = {2024}
+}
+
+@inproceedings{yue2025masrouter,
+  title     = {MasRouter: Learning to Route LLMs for Multi-Agent Systems},
+  author    = {Yue, Yanwei and Zhang, Guibin and Liu, Boyang and Wan, Guancheng and Wang, Kun and Cheng, Dawei and Qi, Yiyan},
+  booktitle = {Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (ACL)},
+  year      = {2025},
+  note      = {arXiv:2502.11133}
+}
+
+@article{zhang2025agentrouter,
+  title   = {AgentRouter: A Knowledge-Graph-Guided LLM Router for Collaborative Multi-Agent Question Answering},
+  author  = {Zhang, Zheyuan and others},
+  journal = {arXiv preprint arXiv:2510.05445},
+  year    = {2025}
+}
+
+@article{llmpoweredswarms2025,
+  title   = {LLM-Powered Swarms: A New Frontier or a Conceptual Stretch?},
+  journal = {arXiv preprint arXiv:2506.14496},
+  year    = {2025}
+}
+
+@article{masllmssim2025,
+  title   = {Multi-Agent Systems Powered by Large Language Models: Applications in Swarm Intelligence},
+  journal = {Frontiers in Artificial Intelligence / arXiv:2503.03800},
+  year    = {2025}
+}
+
+@article{pool2022,
+  title   = {PooL: Pheromone-inspired Communication Framework for Large Scale Multi-Agent Reinforcement Learning},
+  journal = {arXiv preprint arXiv:2202.09722},
+  year    = {2022}
+}
+
+@article{xu2019stigmergicrl,
+  title   = {Stigmergic Independent Reinforcement Learning for Multi-Agent Collaboration},
+  journal = {arXiv preprint arXiv:1911.12504},
+  year    = {2019}
+}
+
+@inproceedings{ricci2005stigmergy,
+  title     = {Stigmergy in Multiagent Reinforcement Learning},
+  booktitle = {IEEE Conference Publication},
+  year      = {2005},
+  note      = {Also available via Inria HAL inria-00000209}
+}
+
+% Foundational ACO (Pheromone's C-02 cites these already)
+@book{dorigo2004acobook,
+  title     = {Ant Colony Optimization},
+  author    = {Dorigo, Marco and St{\"u}tzle, Thomas},
+  publisher = {MIT Press},
+  year      = {2004}
+}
+
+@article{stutzle2000maxmin,
+  title   = {MAX-MIN Ant System},
+  author  = {St{\"u}tzle, Thomas and Hoos, Holger H.},
+  journal = {Future Generation Computer Systems},
+  volume  = {16},
+  number  = {8},
+  year    = {2000}
+}
+```
 
 ## 8. Gaps and flagged UNVERIFIED items
 
-[pending]
+**UNVERIFIED (could not obtain primary source within budget):**
+- Adornetto et al. 2025 — title inferred as "Generative agents in agent-based modeling: overview, validation, and emerging challenges" in IEEE Trans AI, but not fetched directly. Re-dispatch to confirm DOI / full abstract / actual mechanism.
+- AgentRouter full author list — only top author (Zheyuan Zhang) confirmed.
+- AMRO (without -S) — cited within AMRO-S-related results as an earlier "Ant colony inspired Multi-agent Routing Optimization" variant. arXiv ID not confirmed; needs separate retrieval.
+
+**Gaps (not searched within budget):**
+- Semantic Scholar direct search (broad engines covered most targets; Semantic Scholar may list additional citing papers).
+- Non-English papers (no Chinese / Japanese language searches run).
+- Patents search (no patent-database search run).
+- "Stigmergy" as used in MLOps / agent-ops industry blogs (Track A focused on academic; shipped product scan was shallow).
+- ACL / EMNLP / NeurIPS 2025 workshop papers — only main-conference hits were confirmed.
+
+**Key bottom-line findings for LeadResearcher:**
+1. **BLOCKING_CANDIDATE for C-01's "first formal adaptation" framing: AMRO-S (arXiv 2603.12933, IEEE Trans AI, Mar 2026).** AMRO-S does ACO + pheromones + evaporation + DAG + quality-gated updates for multi-agent LLM routing. This destroys any "first" claim as written. Pheromone MUST narrow C-01.
+2. **C-04's "novel, no prior publication" claim is NOT tenable for the term "stigmergic RL."** That term has been used in MARL literature since 2005 (Ricci et al.). AMRO-S effectively implements a stigmergic RL update rule for LLM routing. The narrowed defensible claim is "stigmergic RL for LLM agent **meta-learning**."
+3. **C-02's "ACO-for-LLM" framing is taken** (AMRO-S, ACO-ToT). Only the **MAX-MIN** variant in a **multi-agent orchestration** setting appears genuinely novel.
+4. **C-05 is crowded** (MasRouter, AgentRouter, GPTSwarm all do adaptive team composition). Pheromone's differentiator is the stigmergic (pheromone-mediated) nature of composition.
+5. **C-10 and C-11 are not threatened within Track A** — no ACO-for-LLM competitor does shared workspace with leasing/ADRs or code-review cycles. Cross-track (SubAgent C) will likely find overlap outside ACO.
+
+**BLOCKING_CANDIDATE summary for escalation:** AMRO-S is IDENTICAL-to-STRONG on C-02 (ACO + pheromones + decay + DAG), STRONG on C-04 (quality-gated pheromone updates = stigmergic RL), and partially threatens C-01 (though AMRO-S is centralized). The LeadResearcher should treat this as the single most dangerous prior art for Pheromone's ACO claims.

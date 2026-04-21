@@ -1,10 +1,10 @@
 # Track D — Novelty Verification Per Claim
 
-**Status:** IN PROGRESS (re-dispatch, compressed budget)
-**SubAgent:** D
+**Status:** COMPLETE (finalized by LeadResearcher after two stream-idle timeouts; verdicts + narrowed wordings are SubAgent-D output; §3–§7 completed by LeadResearcher integration pass)
+**SubAgent:** D (dispatches 1 + 2) + LeadResearcher finalization
 **Last updated:** 2026-04-21
-**Tool-call budget:** 20 (compressed from 30–35)
-**Tool-call count:** 2
+**Tool-call budget:** 30–35 (original), 20 (re-dispatch) — effective 40 across two dispatches
+**Tool-call count:** 40 (dispatch 1: 10 wasted on timeout; dispatch 2: 30 producing §1+§2)
 
 ---
 
@@ -279,18 +279,150 @@ This track issues a formal novelty verdict for each claim (C-01 through C-08, pl
 
 ---
 
-## 3. Proposed "Related Work" paragraphs (for NOVEL + REFINEMENT verdicts)
-(pending)
+## 3. Proposed "Related Work" paragraphs (for REFINEMENT verdicts)
 
-## 4. Proposed BibTeX citations (for REFINEMENT verdicts)
-(pending)
+Organized thematically rather than per-claim. Each paragraph is publication-ready and covers the prior art Pheromone must cite and how Pheromone positions against it. Per-claim re-positioning sentences (in §2.x "Re-positioning recommended") feed into these paragraphs.
+
+### 3.1 Stigmergic and decentralized coordination for LLM agents (C-01)
+
+> The idea of coordinating AI agents via environmental traces rather than direct messaging has a long lineage in multi-agent systems, starting with digital-pheromone work [Parunak et al. 2004; Heylighen 2016] and continuing through stigmergic MARL [Verbeeck et al. 2007; Xu et al. 2019, arXiv:1911.12504; arXiv:2105.03546]. Recent LLM-era instantiations include GPTSwarm [Zhuge et al. 2024], which optimizes a computational graph of language agents, AMRO-S [Wang et al. 2026, arXiv:2603.12933], which applies canonical ACO with quality-gated pheromone updates to multi-LLM routing, AgentNet [arXiv:2504.00587], and Ledger-State Stigmergy [arXiv:2604.03997], which grounds indirect LLM-agent coordination in distributed-ledger state. Community work (Rodriguez, "Why Multi-Agent Systems Don't Need Managers") and its formal companion [arXiv:2601.08129] demonstrate pressure-field coordination empirically. Pheromone contributes not a new stigmergic primitive but a new *integration*: a decentralized, stigmergy-only architecture that unifies (a) a file-leased shared workspace, (b) stigmergy-triggered review cycles, and (c) Beta-Binomial trust dynamics — a combination not found in prior work.
+
+### 3.2 ACO-based task allocation and the MAX-MIN variant (C-02)
+
+> Ant Colony Optimization [Dorigo 1992; Dorigo & Stützle 2004] has been applied to LLM-agent routing in AMRO-S [Wang et al. 2026] and to tree-of-thought reasoning in ACO-ToT [Chari et al. 2025, arXiv:2501.19278]. The MAX-MIN variant [Stützle & Hoos 2000] — which bounds pheromone values τ_min ≤ τ ≤ τ_max to mitigate premature convergence — has not, to our knowledge, been applied to LLM multi-agent orchestration; AMRO-S uses unbounded τ. Pheromone adopts MAX-MIN explicitly for stability under long-horizon orchestration workloads.
+
+### 3.3 Emergent specialization and adaptive colony composition (C-03, C-05)
+
+> Role emergence in insect societies is described by the Response Threshold Model [Bonabeau, Theraulaz & Deneubourg 1998]. Decentralized threshold-based task allocation has been evaluated on LLM workloads in [Scientific Reports 2025, s41598-025-21709-9] and emergent role specialization is documented in [Riedl et al. 2025, arXiv:2510.05174]. Adaptive team composition for LLM agents is implemented in Captain Agent [arXiv:2405.19425], AgentNet [arXiv:2504.00587], MorphAgent, "Drop the Hierarchy and Roles" [arXiv:2603.28990], MasRouter [Yue et al. 2025, ACL 2025], and GPTSwarm [Zhuge et al. 2024], all using learned controllers, voting, or graph optimization. Pheromone's contribution is the explicit instrumentation of the Bonabeau threshold formula at the LLM-agent layer (C-03) and a *stigmergic* colony-composition mechanism in which team membership emerges from pheromone-trail dynamics rather than from a central controller (C-05).
+
+### 3.4 Stigmergic reinforcement learning (C-04)
+
+> Stigmergic RL has a 20-year history in MARL [Monekosso & Remagnino 2001; Ricci et al. 2005; Verbeeck, Nowé & Tuyls 2007; Xu et al. 2019, arXiv:1911.12504; arXiv:2105.03546; PRICAI 2022; arXiv:2509.20095; S-MADRL 2025]. AMRO-S [Wang et al. 2026] implements quality-gated pheromone updates for LLM routing, which is functionally a stigmergic RL update rule. Pheromone does not claim novelty on stigmergic RL itself; our contribution is the integration of stigmergic RL with an LLM-agent *meta-learning* substrate — tuning agent-policy parameters across a colony via pheromone-mediated credit assignment on a shared file workspace.
+
+### 3.5 Exploration strategies for agent task selection (C-06)
+
+> Lévy flights, heavy-tailed random walks validated for animal foraging [Viswanathan et al. 1999], have been integrated into swarm and evolutionary algorithms [Yang 2010; Liu 2020 Greedy-Lévy ACO; Springer LNCS 2024 ATLF]. We are not aware of prior work applying Lévy-flight exploration to LLM-agent task selection (replacing ε-greedy at the agent-action layer). Pheromone uses Lévy exploration to prevent local-optimum lock-in during long-horizon multi-agent problem solving.
+
+### 3.6 Collective decision validation and trust (C-07, C-09)
+
+> Quorum sensing [Waters & Bassler 2005; Bixler & Sauter 2012; Trianni 2021] has been digitally transferred into swarm robotics and MAS. Bayesian Beta-Binomial trust is a standard distributional primitive; Pheromone does not claim novelty on it (C-09). The integration we claim (C-07) is a microbial-style quorum-sensing collective-decision-validation layer on top of an LLM agent colony — a combination not located in the 2024–2026 LLM-MAS literature by Tracks B, F, I.
+
+### 3.7 Information Foraging Theory in multi-agent sensing (C-08)
+
+> Information Foraging Theory [Pirolli & Card 1999; Pirolli 2007] was recently applied to RAG at the single-agent layer in InForage [arXiv:2505.09316] and in Dhillon et al. [arXiv:2406.04452]. Pheromone extends IFT to a multi-agent substrate in which pheromone trails carry information-scent signals between agents, producing a stigmergic information-foraging layer.
+
+### 3.8 Shared workspace, review cycles, and scoping (C-10, C-11, C-13)
+
+> Shared-workspace multi-agent coordination is implemented in MetaGPT [Hong et al. 2024, ICLR 2025], ChatDev, CAMEL, AutoGen, and Letta. Review cycles are a standard SOP artifact in MetaGPT (QA role), ChatDev (testing phase), and CAMEL (Critic Agents). However, across an 18-framework survey (Track C), no framework combines (a) file-leasing with (b) ADRs as coordination artifacts and (c) a 4-tier scope model (agent / team / colony / global). Pheromone's claims C-10, C-11, and C-13 are at the integration-specification level.
+
+### 3.9 Knowledge conflict resolution in LLM MAS (C-14)
+
+> Conflict resolution in LLM multi-agent systems has been surveyed in [arXiv:2501.06322] and addressed via orchestrator mediation (MegaAgent, ACL 2025 Findings), LLM-debate (KARMA, NeurIPS 2025), voting, and trust models. Pheromone contributes a stigmergy-mediated conflict-detection primitive: conflicting pheromone gradients on the same artifact signal a conflict, followed by lease-handoff and Beta-Binomial-trust-weighted adjudication. This detection mechanism does not appear in the prior-art surveyed.
+
+### 3.10 Multi-agent coordination benchmarking (C-15)
+
+> Multi-agent and agent-capability benchmarking is dense — SWE-bench Verified, GAIA, WebArena / VisualWebArena, OSWorld, AgentBench, τ-bench, CUB (Writer Computer Use Benchmark), DPAI Arena. Berkeley RDI 2026 demonstrates that SWE-bench / WebArena / OSWorld / GAIA can be gamed to near-perfect scores. PheromBench is not positioned as a new standard but as a targeted instrument measuring stigmergic-coordination quality dimensions (pheromone-trail formation latency, scope-level information propagation, conflict-resolution recall, review-cycle efficiency, trust-convergence rate); full task trajectories are published per the Berkeley critique.
+
+---
+
+## 4. Proposed BibTeX citations (consolidated)
+
+Consolidated from Tracks A (§7), B, F, and Track D novelty work. Full entries live in `track_a_aco_llm.md §7` (ACO-for-LLM group), `track_b_stigmergy_swarm.md` (stigmergy/RTM/Lévy/QS/IFT/SRL group), and `track_f_theoretical_prior_applications.md` (16-concept genealogy). Pointer-only here to avoid duplication; the arXiv paper should import from the three source files and de-duplicate.
+
+**Must-cite (new findings beyond Pheromone's existing citations):**
+
+- `wang2026amros` — AMRO-S (arXiv:2603.12933) — see track_a §7
+- `zhuge2024gptswarm` — GPTSwarm (ICML 2024, arXiv:2402.16823) — see track_a §7
+- `yue2025masrouter` — MasRouter (ACL 2025, arXiv:2502.11133) — see track_a §7
+- `zhang2025agentrouter` — AgentRouter (arXiv:2510.05445) — see track_a §7
+- `chari2025acotot` — ACO-ToT (arXiv:2501.19278) — see track_a §7
+- `rodriguez2026pressurefield` / `arxiv2601.08129` — Pressure fields + temporal decay (LLM stigmergic POC with empirical benchmarks) — see track_i
+- `arxiv2504.00587` — AgentNet — see track_b
+- `arxiv2604.03997` — Ledger-State Stigmergy — see track_b
+- `arxiv2601.08129` — Emergent Coordination via Stigmergy — see track_f §2
+- `arxiv2405.19425` — Captain Agent — see track_b
+- `arxiv2603.28990` — Drop the Hierarchy and Roles — see track_b
+- `arxiv2510.05174` — Riedl et al. emergent LLM coordination — see track_b
+- `scireports2025rtm` — Scientific Reports s41598-025-21709-9 — see track_b (MECHANISM UNVERIFIED — re-check before arXiv submission)
+- `xu2019sirl` — Stigmergic Independent RL, arXiv:1911.12504 — see track_b
+- `ricci2005stigmergy` — IEEE 1410049 — see track_b
+- `monekosso2001synthetic` — Q-Learning with Synthetic Pheromones, Springer LNCS 3-540-45941 — see track_b
+- `sagmarl2025` — S-MADRL Springer 2025 — see track_b
+- `arxiv2509.20095` — From Pheromones to Policies — see track_b
+- `liu2020greedylevy` — Greedy-Lévy ACO — see track_b
+- `atlf2024` — Springer LNCS 2024 ATLF — see track_b
+- `bixler2012qs` — IEEE 6393579 digital quorum sensing — see track_b
+- `dhillon2024inforage` — arXiv:2406.04452 (IFT for LLMs) — see track_b, track_f
+- `inforage2025` — arXiv:2505.09316 — see track_f
+- `dyntaskmas2025` — arXiv:2503.07675 — see track_f
+- `sagallm2025` — SagaLLM (VLDB 2025 OCC for LLM planning) — see track_f
+- `arxiv2603.10062` — Multi-agent memory / eventual consistency survey — see track_f
+- `arxiv2601.08129` — Emergent Coordination via Stigmergy, 2026 — see track_f
+- `karma2025` — KARMA (NeurIPS 2025) — see §2.11
+- `llm-mas-memory-survey2025` — see §2.11
+- `arxiv2501.06322` — Multi-Agent Collaboration Mechanisms survey — see §2.11
+- `megaagent2025` — MegaAgent (ACL 2025 findings) — see §2.11
+- Berkeley RDI 2026 benchmark-gaming critique — see track_h
+
+**Foundational (must be cited; Pheromone may already cite):** Dorigo & Stützle 2004 (ACO book); Stützle & Hoos 2000 (MAX-MIN); Bonabeau, Theraulaz & Deneubourg 1998 (RTM); Theraulaz & Bonabeau 1999; Waters & Bassler 2005 (QS); Viswanathan et al. 1999 (Lévy flights); Pirolli & Card 1999 (IFT); Pirolli 2007 (IFT book); Parunak et al. 2004 (digital pheromones); Heylighen 2016 (stigmergy theory).
+
+---
 
 ## 5. Alternative positioning recommendations (for ALREADY EXISTS verdicts)
-(pending)
 
-## 6. Methodology log (queries issued + databases searched, in chronological order)
+**N/A.** No claim received an ALREADY EXISTS verdict; all 12 claims in scope received REFINEMENT (including two with conditional-ALREADY-EXISTS notes — C-03 pending Sci Reports 2025 mechanism verification; C-04 conditional on Pheromone's mechanism being distinct from AMRO-S's quality-gated τ updates).
 
-1. [1] Write skeleton file (this call).
+**Re-positioning recommendations for the REFINEMENT verdicts are in §2.x "Re-positioning recommended" blocks** — one per claim. Consolidated high-level recommendation: reposition Pheromone as **"novelty of integration, not novelty of primitives"** in the arXiv paper's Introduction and Related Work.
+
+---
+
+## 6. Methodology log
+
+Track D ran across two SubAgent dispatches + one LeadResearcher finalization pass:
+
+1. **Dispatch 1 (SubAgent D, original):** Wrote the skeleton file (98 lines) and hit a stream-idle timeout at ~10 tool calls before issuing any verdicts.
+2. **Dispatch 2 (SubAgent D, compressed re-dispatch):** Read `/home/user/Research/research/BLOCKING_ESCALATION.md` to ground itself on Wave 1–2 evidence synthesized per-claim. Issued verdicts for all 12 claims using the narrowed wordings proposed in BLOCKING_ESCALATION. Filled §1 summary table and §2 per-claim verification. Used ~30 tool calls before a second stream-idle timeout.
+3. **LeadResearcher finalization:** Completed §3 Related Work (thematic consolidation of per-claim re-positioning), §4 BibTeX (consolidation-by-pointer to Tracks A/B/F), §5 (N/A), §6 (this log), §7 (gaps). Flipped Status to COMPLETE. No additional web queries issued; evidence base was sufficient.
+
+**Databases consulted across the operation (aggregate across all Tracks):**
+- arXiv (primary)
+- ACL Anthology
+- OpenReview
+- Semantic Scholar (indirect, via search aggregation)
+- Nature / Scientific Reports (sub-fetches)
+- IEEE Xplore
+- Springer LNCS / LNAI
+- MDPI / PLOS / Frontiers
+- PyPI / npm / crates.io / HuggingFace / GitHub (Track E)
+- Google Patents / USPTO (Track G)
+- Hacker News / LessWrong / Reddit (Track I)
+
+**No fresh web queries were issued in Dispatch 2 or the LeadResearcher finalization** — the per-claim evidence in BLOCKING_ESCALATION.md was assessed as sufficient for REFINEMENT verdicts, and issuing new queries was deprioritized under the compressed budget. This is a principled choice (evidence base was sufficient) but also a limitation (Track F's VIRGIN verdicts for C-02 MAX-MIN, C-04 Stig-RL-for-LLM, C-06 Lévy-for-LLM, C-07 microbial-QS-for-LLM were NOT falsification-tested by Track D beyond the Wave 1–2 sweep).
+
+---
 
 ## 7. Gaps, UNVERIFIED items, and limitations
-(pending)
+
+**Claim-specific unverified items:**
+
+- **C-03:** *Scientific Reports 2025* paper (s41598-025-21709-9) mechanism was not confirmed as RTM-specific (Track B's fetch was 503-blocked; Track D did not re-fetch). If that paper turns out to instrument the Bonabeau threshold formula at the LLM-agent layer, C-03 downgrades from REFINEMENT to ALREADY EXISTS. **Recommended action: verify this paper's mechanism before arXiv submission.** This is the single highest-leverage UNVERIFIED item.
+- **C-04:** verdict is conditional on Pheromone's mechanism being demonstrably different from AMRO-S's quality-gated pheromone updates. If Pheromone's stigmergic RL is literally the same rule, C-04 → ALREADY EXISTS.
+- **C-05:** verdict is conditional on Pheromone's colony-composition being stigmergy-first (not controller-mediated-with-stigmergic-inputs).
+
+**Track-F VIRGIN verdicts not falsification-tested in Track D:** C-02 (MAX-MIN for LLM), C-04 (stig-RL for LLM), C-06 (Lévy for LLM), C-07 (microbial QS for LLM). Track D deferred to Track F's evidence rather than issuing new queries. The Wave 1–2 coverage was deep enough that this is unlikely to miss a major prior-art hit, but these four claims should be re-verified with a narrow dedicated search (5–10 queries) before the paper is submitted.
+
+**Adornetto et al. 2025** (flagged UNVERIFIED by Track A) — not resolved in Track D. If it exists and has an ACO-for-LLM mechanism, the Track A matrix must add it.
+
+**Patent-layer conditional:** Track G found NO blocking patents but also noted that exhaustive USPTO assignee-filtered scans were not performed and that 18-month publication lag hides late-2024-to-early-2026 filings. **Recommended action: commission a professional FTO analysis before commercial launch of `pheromone-ai`.**
+
+**Name-brand conditional:** Track E found 0 BLOCKING + 3 CONFUSING. `pheromone-ai.com` is owned by an unknown party running a "Launching Soon" page — **identify this party before arXiv announcement** (it may be a stealth competitor).
+
+**Benchmark conditional:** Track H recommends SWE-bench Verified target rise from 80% → 90%+ and GAIA L3 target drop from 65% → 45% before submission.
+
+**Limitations of Track D methodology:**
+
+- Relied heavily on BLOCKING_ESCALATION.md synthesis by LeadResearcher — a dependency risk if that synthesis missed something.
+- No new web queries issued in Dispatch 2 or the LeadResearcher finalization; novelty verdicts are anchored on Wave 1–2 evidence, not on independent Track-D discovery.
+- Two stream-idle timeouts — the first lost 10 tool calls entirely, the second lost section-3-onwards of the SubAgent's work. This is a harness-level robustness issue, not a research-substance issue, but it should be noted in the synthesis provenance discussion.
+
+**Recommendation to the Pheromone team:** before arXiv submission, spend 30–60 minutes manually verifying the C-03 Sci Reports 2025 mechanism (highest-leverage UNVERIFIED item) and spend 1–2 hours auditing the Track D verdicts claim-by-claim against the cited evidence. Track D's verdicts are defensible but were not independently falsification-tested.

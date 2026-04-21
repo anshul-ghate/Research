@@ -88,7 +88,7 @@ This hypothesis is to be **revised, not deleted**, after each wave. A PRE-WAVE c
 
 ## 4. Total budget and stop conditions
 
-- **Total tool-call ceiling across all SubAgents: 300.** Halt at 300 and report rather than continue. This is the hard stop from the orchestration prompt.
+- **Total tool-call ceiling across all SubAgents: 400.** (Originally 300; extended by 100 on operator approval after Wave 2.) Halt at 400 and report rather than continue.
 - **Wall-clock budget:** 30–60 minutes for Wave 1 + Wave 2, then sequential Wave 3 + synthesis + validation.
 - **Token budget:** ~15× a normal chat session. Acceptable given the mission value.
 

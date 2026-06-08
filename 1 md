@@ -20,7 +20,7 @@ public class NewCombo {
 
     /** INSERT template. Placeholders, in this exact order, are supplied by the code:
      *    %1$s FIELD_NAME   %2$s FIELD_VALUE   %3$s REQUEST_ACTION
-     *    %4$s BACKEND_TYPE %5$s BACKEND_SUB_TYPE %6$s TRAN_CODE %7$s SERVICE_NAME
+     *    %4$s BACKEND_TYPE(=TXN_TYPE) %5$s BACKEND_SUB_TYPE(=TXN_SUB_TYPE) %6$s TRAN_CODE(=DESTINATION) %7$s SERVICE_NAME
      *  Everything else is literal SQL. A literal percent sign must be written %%. */
     static final String INSERT_TEMPLATE =
         "INSERT INTO EISAPP.CACHE_DETAILS (FIELD_NAME, FIELD_VALUE, REQUEST_ACTION, PROCESSING_ACTION, RESPONSE_ACTION, SOURCE_ID, BACKEND_TYPE, BACKEND_SUB_TYPE, TRAN_CODE, SERVICE_NAME, CREATION_TIME) "
@@ -131,16 +131,18 @@ public class NewCombo {
                     sqlEscape(e.getKey()),                 // %1$s FIELD_NAME
                     sqlEscape(em.value),                   // %2$s FIELD_VALUE
                     sqlEscape(REQUEST_ACTION_VALUE),       // %3$s REQUEST_ACTION
-                    sqlEscape(em.destination),             // %4$s BACKEND_TYPE
-                    sqlEscape(em.txnType),                 // %5$s BACKEND_SUB_TYPE
-                    sqlEscape(em.txnSubType),              // %6$s TRAN_CODE
+                    sqlEscape(em.txnType),                 // %4$s BACKEND_TYPE     = TXN_TYPE
+                    sqlEscape(em.txnSubType),              // %5$s BACKEND_SUB_TYPE = TXN_SUB_TYPE
+                    sqlEscape(em.destination),             // %6$s TRAN_CODE        = DESTINATION
                     sqlEscape(em.serviceName)              // %7$s SERVICE_NAME
             )).append("\n");
         }
 
         String prefix = (args.length >= 2) ? args[1]
                       : (Out_Fname != null && !Out_Fname.trim().isEmpty() ? Out_Fname : stripExt(in.getFileName().toString()));
-        Path jsonOut = Paths.get(prefix + ".json"), sqlOut = Paths.get(prefix + ".sql");
+        Path outDir = in.toAbsolutePath().getParent();          // same folder as the CSV
+        if (outDir == null) outDir = Paths.get(".").toAbsolutePath();
+        Path jsonOut = outDir.resolve(prefix + ".json"), sqlOut = outDir.resolve(prefix + ".sql");
         Files.write(jsonOut, json.toString().getBytes(StandardCharsets.UTF_8));
         Files.write(sqlOut,  sql.toString().getBytes(StandardCharsets.UTF_8));
 

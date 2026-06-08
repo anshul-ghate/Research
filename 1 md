@@ -11,58 +11,38 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * CSV -> cache-config JSON ( [{"FIELD_NAME":"","FIELD_VALUE":""}, ...] ) + INSERT statements,
- * for every DESTINATION / TXN_TYPE / TXN_SUB_TYPE combination.
- *
- * CSV columns (0-based), NO header by default:
- *   0 DESTINATION   1 TXN_TYPE   2 TXN_SUB_TYPE
- *   3 THIRD_PARTY_URL   4 SERVICE_NAME   5 SERVICE_URL
- *   6 DMZ_URL          7 HTTP_TIMEOUT    8 SYS_HTTP_TIMEOUT
- *   9 CONTENT_CHECK   10 SOURCE_AUTH
- *
- * Just set INPUT_CSV below and Run. (A command-line arg, if given, overrides it.)
- */
-public class CacheConfigGenerator {
+public class NewCombo {
 
     // ----------------------------- knobs you may tweak -----------------------------
 
-    /** Paste your CSV path here; used when you Run with no arguments.
-     *  Windows: use forward slashes ("C:/cfg/combinations.csv") OR escaped backslashes ("C:\\cfg\\combinations.csv"). */
-    static final String INPUT_CSV = "C:/path/to/combinations.csv";
+    static final String Input_CSV = "E:\\Anshul\\A\\A\\BRE\\BRE2.csv";
+    static final String Out_Fname = "";   // "" -> derive from CSV filename
 
-    /** Optional output name prefix. Leave "" to derive it from the CSV filename
-     *  (combinations.csv -> combinations.json + combinations.sql, in the working directory). */
-    static final String OUTPUT_PREFIX = "";
-
-    /** Your INSERT template (a String.format pattern):
-     *    %1$s = FIELD_NAME, %2$s = FIELD_VALUE. Everything else is literal SQL.
-     *  NOTE: a literal percent sign in SQL must be written as %% (e.g. LIKE '%%FOO%%'). */
+    /** INSERT template. Placeholders, in this exact order, are supplied by the code:
+     *    %1$s FIELD_NAME   %2$s FIELD_VALUE   %3$s REQUEST_ACTION
+     *    %4$s BACKEND_TYPE %5$s BACKEND_SUB_TYPE %6$s TRAN_CODE %7$s SERVICE_NAME
+     *  Everything else is literal SQL. A literal percent sign must be written %%. */
     static final String INSERT_TEMPLATE =
-            "INSERT INTO CACHE_CONFIG (FIELD_NAME, FIELD_VALUE) VALUES ('%1$s', '%2$s');";
+        "INSERT INTO EISAPP.CACHE_DETAILS (FIELD_NAME, FIELD_VALUE, REQUEST_ACTION, PROCESSING_ACTION, RESPONSE_ACTION, SOURCE_ID, BACKEND_TYPE, BACKEND_SUB_TYPE, TRAN_CODE, SERVICE_NAME, CREATION_TIME) "
+      + "VALUES ('%1$s','%2$s','%3$s','SOURCE ID CONFIGURATION','NULL','Multiple','%4$s','%5$s','%6$s','%7$s',TRUNC(SYSDATE));";
 
-    /** Set true if the first CSV row is a header line. */
-    static final boolean HAS_HEADER = false;
+    /** %3$s REQUEST_ACTION. I do NOT know what this should be -- SET IT. (Empty -> Oracle NULL.) */
+    static final String REQUEST_ACTION_VALUE = "";
 
-    /** SYS HTTP Timeout key form. Flip this per run:
-     *    Scope.DEST_TYPE -> DESTINATION_TXN_TYPE_SYS_HTTPTimeout
-     *    Scope.FULL      -> DESTINATION_TXN_TYPE_TXN_SUB_TYPE_SYS_HTTPTimeout */
+    static final boolean hasHeader = false;
+
     static final Scope SYS_HTTP_TIMEOUT_SCOPE = Scope.DEST_TYPE;
-
-    /** Cell values meaning "this cache does not apply -> skip the field" (case-insensitive). Blank also skips. */
     static final Set<String> ABSENT_SENTINELS = new HashSet<>(Arrays.asList("NA", "NULL"));
 
     // ------------------------------- field model -----------------------------------
 
-    /** FULL = key uses DEST_TYPE_SUBTYPE ; DEST_TYPE = key uses only DEST_TYPE. */
     enum Scope { FULL, DEST_TYPE }
-    /** ALWAYS = always emitted (empty value allowed) ; OPTIONAL = skipped when the cell is absent/NA/NULL. */
     enum Presence { ALWAYS, OPTIONAL }
 
     static final class FieldSpec {
         final String label, suffix;
         final Scope scope;
-        final int valueColumn;     // CSV column for the value, or -1 = manual (emitted with empty value)
+        final int valueColumn;
         final Presence presence;
         FieldSpec(String label, String suffix, Scope scope, int valueColumn, Presence presence) {
             this.label = label; this.suffix = suffix; this.scope = scope;
@@ -70,7 +50,15 @@ public class CacheConfigGenerator {
         }
     }
 
-    // The caches. Exact suffixes/casing preserved as specified.
+    /** One emitted cache row: the value PLUS the combination it came from (needed for the extra INSERT columns). */
+    static final class Emit {
+        final String value, destination, txnType, txnSubType, serviceName;
+        Emit(String value, String destination, String txnType, String txnSubType, String serviceName) {
+            this.value = value; this.destination = destination; this.txnType = txnType;
+            this.txnSubType = txnSubType; this.serviceName = serviceName;
+        }
+    }
+
     static final List<FieldSpec> FIELDS = Arrays.asList(
         new FieldSpec("Content Check",    "_CONTENT_CHECK",   Scope.FULL,              9, Presence.ALWAYS),
         new FieldSpec("Source Auth",      "",                 Scope.FULL,             10, Presence.ALWAYS),
@@ -85,20 +73,20 @@ public class CacheConfigGenerator {
     // ----------------------------------- main ---------------------------------------
 
     public static void main(String[] args) throws IOException {
-        String inputPath = (args.length >= 1) ? args[0] : INPUT_CSV;
-        if (inputPath == null || inputPath.trim().isEmpty() || inputPath.equals("C:/path/to/combinations.csv")) {
-            System.err.println("Set INPUT_CSV at the top of the file to your CSV path, then Run again.");
+        String inputPath = (args.length >= 1) ? args[0] : Input_CSV;
+        if (inputPath == null || inputPath.trim().isEmpty()) {
+            System.err.println("Set Input_CSV then run again.");
             System.exit(2);
         }
 
         Path in = Paths.get(inputPath);
         List<List<String>> rows = parseCsv(new String(Files.readAllBytes(in), StandardCharsets.UTF_8));
 
-        LinkedHashMap<String, String> emitted = new LinkedHashMap<>();
+        LinkedHashMap<String, Emit> emitted = new LinkedHashMap<>();
         List<String> warnings = new ArrayList<>();
         int processed = 0, skippedRows = 0, skippedOptional = 0;
 
-        for (int r = (HAS_HEADER ? 1 : 0); r < rows.size(); r++) {
+        for (int r = (hasHeader ? 1 : 0); r < rows.size(); r++) {
             List<String> row = rows.get(r);
             String d = get(row, 0), t = get(row, 1), s = get(row, 2);
             if (d.isEmpty() || t.isEmpty() || s.isEmpty()) {
@@ -107,19 +95,20 @@ public class CacheConfigGenerator {
                 continue;
             }
             processed++;
+            String serviceName = get(row, 4);   // CSV column 5 (SERVICE_NAME)
             for (FieldSpec f : FIELDS) {
                 String raw = (f.valueColumn < 0) ? "" : get(row, f.valueColumn);
                 if (f.presence == Presence.OPTIONAL && isAbsent(raw)) { skippedOptional++; continue; }
 
                 String name = baseKey(d, t, s, f.scope) + f.suffix;
                 if (emitted.containsKey(name)) {                       // already produced -> dedup
-                    String prev = emitted.get(name);
+                    String prev = emitted.get(name).value;
                     if (!prev.equals(raw)) {
                         warnings.add("CONFLICT: '" + name + "' produced twice with different values: '"
                                 + prev + "' vs '" + raw + "' (row " + (r + 1) + "). Kept the first; fix the CSV.");
                     }
                 } else {
-                    emitted.put(name, raw);
+                    emitted.put(name, new Emit(raw, d, t, s, serviceName));
                 }
             }
         }
@@ -127,21 +116,30 @@ public class CacheConfigGenerator {
         // ---- JSON ----
         StringBuilder json = new StringBuilder("[\n");
         int i = 0, total = emitted.size();
-        for (Map.Entry<String, String> e : emitted.entrySet()) {
+        for (Map.Entry<String, Emit> e : emitted.entrySet()) {
             json.append("  {\"FIELD_NAME\":\"").append(jsonEscape(e.getKey()))
-                .append("\", \"FIELD_VALUE\":\"").append(jsonEscape(e.getValue())).append("\"}")
+                .append("\", \"FIELD_VALUE\":\"").append(jsonEscape(e.getValue().value)).append("\"}")
                 .append(++i < total ? ",\n" : "\n");
         }
         json.append("]\n");
 
-        // ---- SQL ----
+        // ---- SQL ----  (7 values passed, matching %1$s .. %7$s)
         StringBuilder sql = new StringBuilder();
-        for (Map.Entry<String, String> e : emitted.entrySet())
-            sql.append(String.format(INSERT_TEMPLATE, sqlEscape(e.getKey()), sqlEscape(e.getValue()))).append("\n");
+        for (Map.Entry<String, Emit> e : emitted.entrySet()) {
+            Emit em = e.getValue();
+            sql.append(String.format(INSERT_TEMPLATE,
+                    sqlEscape(e.getKey()),                 // %1$s FIELD_NAME
+                    sqlEscape(em.value),                   // %2$s FIELD_VALUE
+                    sqlEscape(REQUEST_ACTION_VALUE),       // %3$s REQUEST_ACTION
+                    sqlEscape(em.destination),             // %4$s BACKEND_TYPE
+                    sqlEscape(em.txnType),                 // %5$s BACKEND_SUB_TYPE
+                    sqlEscape(em.txnSubType),              // %6$s TRAN_CODE
+                    sqlEscape(em.serviceName)              // %7$s SERVICE_NAME
+            )).append("\n");
+        }
 
         String prefix = (args.length >= 2) ? args[1]
-                      : (OUTPUT_PREFIX != null && !OUTPUT_PREFIX.trim().isEmpty()
-                            ? OUTPUT_PREFIX : stripExt(in.getFileName().toString()));
+                      : (Out_Fname != null && !Out_Fname.trim().isEmpty() ? Out_Fname : stripExt(in.getFileName().toString()));
         Path jsonOut = Paths.get(prefix + ".json"), sqlOut = Paths.get(prefix + ".sql");
         Files.write(jsonOut, json.toString().getBytes(StandardCharsets.UTF_8));
         Files.write(sqlOut,  sql.toString().getBytes(StandardCharsets.UTF_8));
@@ -149,7 +147,6 @@ public class CacheConfigGenerator {
         System.out.println("Input  : " + in.toAbsolutePath());
         System.out.println("Combinations processed : " + processed + "  (skipped rows: " + skippedRows + ")");
         System.out.println("Fields emitted (deduped): " + emitted.size() + "  (optional fields skipped: " + skippedOptional + ")");
-        System.out.println("SYS HTTP Timeout scope  : " + SYS_HTTP_TIMEOUT_SCOPE);
         System.out.println("JSON -> " + jsonOut.toAbsolutePath());
         System.out.println("SQL  -> " + sqlOut.toAbsolutePath());
         if (!warnings.isEmpty()) {
@@ -184,7 +181,6 @@ public class CacheConfigGenerator {
         return b.toString();
     }
 
-    /** Minimal RFC-4180 CSV parser: handles quoted fields, escaped quotes (""), commas/newlines inside quotes. */
     static List<List<String>> parseCsv(String text) {
         List<List<String>> rows = new ArrayList<>();
         List<String> cur = new ArrayList<>();

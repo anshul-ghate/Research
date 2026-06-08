@@ -1,0 +1,214 @@
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * CSV -> cache-config JSON ( [{"FIELD_NAME":"","FIELD_VALUE":""}, ...] ) + INSERT statements,
+ * for every DESTINATION / TXN_TYPE / TXN_SUB_TYPE combination.
+ *
+ * CSV columns (0-based), NO header by default:
+ *   0 DESTINATION   1 TXN_TYPE   2 TXN_SUB_TYPE
+ *   3 THIRD_PARTY_URL   4 SERVICE_NAME   5 SERVICE_URL
+ *   6 DMZ_URL          7 HTTP_TIMEOUT    8 SYS_HTTP_TIMEOUT
+ *   9 CONTENT_CHECK   10 SOURCE_AUTH
+ *
+ * Just set INPUT_CSV below and Run. (A command-line arg, if given, overrides it.)
+ */
+public class CacheConfigGenerator {
+
+    // ----------------------------- knobs you may tweak -----------------------------
+
+    /** Paste your CSV path here; used when you Run with no arguments.
+     *  Windows: use forward slashes ("C:/cfg/combinations.csv") OR escaped backslashes ("C:\\cfg\\combinations.csv"). */
+    static final String INPUT_CSV = "C:/path/to/combinations.csv";
+
+    /** Optional output name prefix. Leave "" to derive it from the CSV filename
+     *  (combinations.csv -> combinations.json + combinations.sql, in the working directory). */
+    static final String OUTPUT_PREFIX = "";
+
+    /** Your INSERT template (a String.format pattern):
+     *    %1$s = FIELD_NAME, %2$s = FIELD_VALUE. Everything else is literal SQL.
+     *  NOTE: a literal percent sign in SQL must be written as %% (e.g. LIKE '%%FOO%%'). */
+    static final String INSERT_TEMPLATE =
+            "INSERT INTO CACHE_CONFIG (FIELD_NAME, FIELD_VALUE) VALUES ('%1$s', '%2$s');";
+
+    /** Set true if the first CSV row is a header line. */
+    static final boolean HAS_HEADER = false;
+
+    /** SYS HTTP Timeout key form. Flip this per run:
+     *    Scope.DEST_TYPE -> DESTINATION_TXN_TYPE_SYS_HTTPTimeout
+     *    Scope.FULL      -> DESTINATION_TXN_TYPE_TXN_SUB_TYPE_SYS_HTTPTimeout */
+    static final Scope SYS_HTTP_TIMEOUT_SCOPE = Scope.DEST_TYPE;
+
+    /** Cell values meaning "this cache does not apply -> skip the field" (case-insensitive). Blank also skips. */
+    static final Set<String> ABSENT_SENTINELS = new HashSet<>(Arrays.asList("NA", "NULL"));
+
+    // ------------------------------- field model -----------------------------------
+
+    /** FULL = key uses DEST_TYPE_SUBTYPE ; DEST_TYPE = key uses only DEST_TYPE. */
+    enum Scope { FULL, DEST_TYPE }
+    /** ALWAYS = always emitted (empty value allowed) ; OPTIONAL = skipped when the cell is absent/NA/NULL. */
+    enum Presence { ALWAYS, OPTIONAL }
+
+    static final class FieldSpec {
+        final String label, suffix;
+        final Scope scope;
+        final int valueColumn;     // CSV column for the value, or -1 = manual (emitted with empty value)
+        final Presence presence;
+        FieldSpec(String label, String suffix, Scope scope, int valueColumn, Presence presence) {
+            this.label = label; this.suffix = suffix; this.scope = scope;
+            this.valueColumn = valueColumn; this.presence = presence;
+        }
+    }
+
+    // The caches. Exact suffixes/casing preserved as specified.
+    static final List<FieldSpec> FIELDS = Arrays.asList(
+        new FieldSpec("Content Check",    "_CONTENT_CHECK",   Scope.FULL,              9, Presence.ALWAYS),
+        new FieldSpec("Source Auth",      "",                 Scope.FULL,             10, Presence.ALWAYS),
+        new FieldSpec("Third Party URL",  "_THIRD_PARTY_URL", Scope.FULL,              3, Presence.ALWAYS),
+        new FieldSpec("DMZ URL",          "_EIS_DMZ_URL",     Scope.FULL,              6, Presence.OPTIONAL),
+        new FieldSpec("HTTP Timeout",     "_HTTPTimeout",     Scope.DEST_TYPE,         7, Presence.ALWAYS),
+        new FieldSpec("Sys URL",          "_Sys_URL",         Scope.DEST_TYPE,         5, Presence.ALWAYS),
+        new FieldSpec("Sys Service",      "_Sys_Service",     Scope.DEST_TYPE,         4, Presence.ALWAYS),
+        new FieldSpec("Sys HTTP Timeout", "_SYS_HTTPTimeout", SYS_HTTP_TIMEOUT_SCOPE,  8, Presence.ALWAYS)
+    );
+
+    // ----------------------------------- main ---------------------------------------
+
+    public static void main(String[] args) throws IOException {
+        String inputPath = (args.length >= 1) ? args[0] : INPUT_CSV;
+        if (inputPath == null || inputPath.trim().isEmpty() || inputPath.equals("C:/path/to/combinations.csv")) {
+            System.err.println("Set INPUT_CSV at the top of the file to your CSV path, then Run again.");
+            System.exit(2);
+        }
+
+        Path in = Paths.get(inputPath);
+        List<List<String>> rows = parseCsv(new String(Files.readAllBytes(in), StandardCharsets.UTF_8));
+
+        LinkedHashMap<String, String> emitted = new LinkedHashMap<>();
+        List<String> warnings = new ArrayList<>();
+        int processed = 0, skippedRows = 0, skippedOptional = 0;
+
+        for (int r = (HAS_HEADER ? 1 : 0); r < rows.size(); r++) {
+            List<String> row = rows.get(r);
+            String d = get(row, 0), t = get(row, 1), s = get(row, 2);
+            if (d.isEmpty() || t.isEmpty() || s.isEmpty()) {
+                warnings.add("Row " + (r + 1) + " skipped: DESTINATION/TXN_TYPE/TXN_SUB_TYPE must all be non-empty.");
+                skippedRows++;
+                continue;
+            }
+            processed++;
+            for (FieldSpec f : FIELDS) {
+                String raw = (f.valueColumn < 0) ? "" : get(row, f.valueColumn);
+                if (f.presence == Presence.OPTIONAL && isAbsent(raw)) { skippedOptional++; continue; }
+
+                String name = baseKey(d, t, s, f.scope) + f.suffix;
+                if (emitted.containsKey(name)) {                       // already produced -> dedup
+                    String prev = emitted.get(name);
+                    if (!prev.equals(raw)) {
+                        warnings.add("CONFLICT: '" + name + "' produced twice with different values: '"
+                                + prev + "' vs '" + raw + "' (row " + (r + 1) + "). Kept the first; fix the CSV.");
+                    }
+                } else {
+                    emitted.put(name, raw);
+                }
+            }
+        }
+
+        // ---- JSON ----
+        StringBuilder json = new StringBuilder("[\n");
+        int i = 0, total = emitted.size();
+        for (Map.Entry<String, String> e : emitted.entrySet()) {
+            json.append("  {\"FIELD_NAME\":\"").append(jsonEscape(e.getKey()))
+                .append("\", \"FIELD_VALUE\":\"").append(jsonEscape(e.getValue())).append("\"}")
+                .append(++i < total ? ",\n" : "\n");
+        }
+        json.append("]\n");
+
+        // ---- SQL ----
+        StringBuilder sql = new StringBuilder();
+        for (Map.Entry<String, String> e : emitted.entrySet())
+            sql.append(String.format(INSERT_TEMPLATE, sqlEscape(e.getKey()), sqlEscape(e.getValue()))).append("\n");
+
+        String prefix = (args.length >= 2) ? args[1]
+                      : (OUTPUT_PREFIX != null && !OUTPUT_PREFIX.trim().isEmpty()
+                            ? OUTPUT_PREFIX : stripExt(in.getFileName().toString()));
+        Path jsonOut = Paths.get(prefix + ".json"), sqlOut = Paths.get(prefix + ".sql");
+        Files.write(jsonOut, json.toString().getBytes(StandardCharsets.UTF_8));
+        Files.write(sqlOut,  sql.toString().getBytes(StandardCharsets.UTF_8));
+
+        System.out.println("Input  : " + in.toAbsolutePath());
+        System.out.println("Combinations processed : " + processed + "  (skipped rows: " + skippedRows + ")");
+        System.out.println("Fields emitted (deduped): " + emitted.size() + "  (optional fields skipped: " + skippedOptional + ")");
+        System.out.println("SYS HTTP Timeout scope  : " + SYS_HTTP_TIMEOUT_SCOPE);
+        System.out.println("JSON -> " + jsonOut.toAbsolutePath());
+        System.out.println("SQL  -> " + sqlOut.toAbsolutePath());
+        if (!warnings.isEmpty()) {
+            System.out.println("\nWarnings (" + warnings.size() + "):");
+            for (String w : warnings) System.out.println("  - " + w);
+        }
+    }
+
+    // --------------------------------- helpers --------------------------------------
+
+    static String baseKey(String d, String t, String s, Scope scope) {
+        return scope == Scope.FULL ? d + "_" + t + "_" + s : d + "_" + t;
+    }
+    static boolean isAbsent(String v) { return v.isEmpty() || ABSENT_SENTINELS.contains(v.toUpperCase()); }
+    static String get(List<String> row, int i) { return i < row.size() ? row.get(i).trim() : ""; }
+    static String stripExt(String name) { int d = name.lastIndexOf('.'); return d > 0 ? name.substring(0, d) : name; }
+    static String sqlEscape(String s) { return s.replace("'", "''"); }
+
+    static String jsonEscape(String s) {
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '"':  b.append("\\\""); break;
+                case '\\': b.append("\\\\"); break;
+                case '\n': b.append("\\n");  break;
+                case '\r': b.append("\\r");  break;
+                case '\t': b.append("\\t");  break;
+                default:   if (c < 0x20) b.append(String.format("\\u%04x", (int) c)); else b.append(c);
+            }
+        }
+        return b.toString();
+    }
+
+    /** Minimal RFC-4180 CSV parser: handles quoted fields, escaped quotes (""), commas/newlines inside quotes. */
+    static List<List<String>> parseCsv(String text) {
+        List<List<String>> rows = new ArrayList<>();
+        List<String> cur = new ArrayList<>();
+        StringBuilder field = new StringBuilder();
+        boolean inQuotes = false;
+        int i = 0, n = text.length();
+        while (i < n) {
+            char c = text.charAt(i);
+            if (inQuotes) {
+                if (c == '"') {
+                    if (i + 1 < n && text.charAt(i + 1) == '"') { field.append('"'); i += 2; continue; }
+                    inQuotes = false; i++; continue;
+                }
+                field.append(c); i++; continue;
+            }
+            if (c == '"')  { inQuotes = true; i++; continue; }
+            if (c == ',')  { cur.add(field.toString()); field.setLength(0); i++; continue; }
+            if (c == '\r') { i++; continue; }
+            if (c == '\n') { cur.add(field.toString()); field.setLength(0); rows.add(cur); cur = new ArrayList<>(); i++; continue; }
+            field.append(c); i++;
+        }
+        cur.add(field.toString());
+        rows.add(cur);
+        rows.removeIf(row -> row.size() == 1 && row.get(0).trim().isEmpty());
+        return rows;
+    }
+}
